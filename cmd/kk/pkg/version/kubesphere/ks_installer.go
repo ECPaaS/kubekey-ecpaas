@@ -218,6 +218,26 @@ var KsV332 = &KsInstaller{
 	},
 }
 
+var KsEcpaasV332 = &KsInstaller{
+        Version:                      EcpaasV332.String(),
+        CRDTemplate:                  templates.KsInstaller,
+        ClusterConfigurationTemplate: templates.EcpaasV332,
+        K8sSupportVersions: []string{
+                "v1.19",
+                "v1.20",
+                "v1.21",
+                "v1.22",
+                "v1.23",
+                "v1.24",
+        },
+        UpgradeSupportVersions: []string{
+                V331.String(),
+                V330.String(),
+                V320.String(),
+                V321.String(),
+        },
+}
+
 var KsV340 = &KsInstaller{
 	Version:                      V340.String(),
 	CRDTemplate:                  templates.KsInstaller,
