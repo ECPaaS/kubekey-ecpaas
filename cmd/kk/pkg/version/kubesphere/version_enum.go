@@ -35,6 +35,7 @@ const (
 	V330
 	V331
 	V332
+        EcpaasV332
 	V340
 	V341
 )
@@ -49,6 +50,7 @@ var VersionList = []Version{
 	V330,
 	V331,
 	V332,
+        EcpaasV332,
 	V340,
 	V341,
 }
@@ -63,6 +65,7 @@ var VersionMap = map[string]*KsInstaller{
 	V330.String(): KsV330,
 	V331.String(): KsV331,
 	V332.String(): KsV332,
+        EcpaasV332.String(): KsEcpaasV332,
 	V340.String(): KsV340,
 	V341.String(): KsV341,
 }
@@ -75,6 +78,7 @@ var CNSource = map[string]bool{
 	V330.String(): true,
 	V331.String(): true,
 	V332.String(): true,
+        EcpaasV332.String(): true,
 	V340.String(): true,
 	V341.String(): true,
 }
@@ -99,6 +103,8 @@ func (v Version) String() string {
 		return "v3.3.1"
 	case V332:
 		return "v3.3.2"
+        case EcpaasV332:
+               return "ecpaas-v332"
 	case V340:
 		return "v3.4.0"
 	case V341:
