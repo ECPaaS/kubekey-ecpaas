@@ -224,7 +224,7 @@ func (g *GenerateKubeadmConfig) Execute(runtime connector.Runtime) error {
 		switch g.KubeConf.Cluster.Etcd.Type {
 		case kubekeyv1alpha2.KubeKey:
 			for _, host := range runtime.GetHostsByRole(common.ETCD) {
-				endpoint := fmt.Sprintf("https://%s:%s", host.GetInternalAddress(), kubekeyv1alpha2.DefaultEtcdPort)
+				endpoint := fmt.Sprintf("https://%s:%s", host.GetInternalIPv4Address(), kubekeyv1alpha2.DefaultEtcdPort)
 				endpointsList = append(endpointsList, endpoint)
 			}
 			externalEtcd.Endpoints = endpointsList
@@ -286,7 +286,7 @@ func (g *GenerateKubeadmConfig) Execute(runtime connector.Runtime) error {
 				"Version":                g.KubeConf.Cluster.Kubernetes.Version,
 				"ClusterName":            g.KubeConf.Cluster.Kubernetes.ClusterName,
 				"DNSDomain":              g.KubeConf.Cluster.Kubernetes.DNSDomain,
-				"AdvertiseAddress":       host.GetInternalAddress(),
+				"AdvertiseAddress":       host.GetInternalIPv4Address(),
 				"BindPort":               kubekeyv1alpha2.DefaultApiserverPort,
 				"ControlPlaneEndpoint":   fmt.Sprintf("%s:%d", g.KubeConf.Cluster.ControlPlaneEndpoint.Domain, g.KubeConf.Cluster.ControlPlaneEndpoint.Port),
 				"PodSubnet":              g.KubeConf.Cluster.Network.KubePodsCIDR,
@@ -306,6 +306,7 @@ func (g *GenerateKubeadmConfig) Execute(runtime connector.Runtime) error {
 				"CgroupDriver":           checkCgroupDriver,
 				"BootstrapToken":         bootstrapToken,
 				"CertificateKey":         certificateKey,
+				"IPv6Support":            host.GetInternalIPv6Address() != "",
 			},
 		}
 
@@ -715,8 +716,8 @@ func (u *UpgradeKubeMaster) Execute(runtime connector.Runtime) error {
 		return errors.Wrap(errors.WithStack(err), fmt.Sprintf("stop kubelet failed: %s", host.GetName()))
 	}
 
-	if versionutil.MustParseSemantic(u.KubeConf.Cluster.Kubernetes.Version).AtLeast(versionutil.MustParseSemantic("v1.24.0")) {
-		if _, err := runtime.GetRunner().SudoCmd("sed -i 's/ --network-plugin=cni / /g' /var/lib/kubelet/kubeadm-flags.env", false); err != nil {
+	if u.KubeConf.Cluster.Kubernetes.IsAtLeastV124() {
+		if _, err := runtime.GetRunner().SudoCmd(fmt.Sprintf("echo 'KUBELET_KUBEADM_ARGS=\\\"--container-runtime-endpoint=%s\\\"' > /var/lib/kubelet/kubeadm-flags.env", u.KubeConf.Cluster.Kubernetes.ContainerRuntimeEndpoint), false); err != nil {
 			return errors.Wrap(errors.WithStack(err), fmt.Sprintf("update kubelet config failed: %s", host.GetName()))
 		}
 	}
@@ -746,8 +747,8 @@ func (u *UpgradeKubeWorker) Execute(runtime connector.Runtime) error {
 	if _, err := runtime.GetRunner().SudoCmd("systemctl stop kubelet", true); err != nil {
 		return errors.Wrap(errors.WithStack(err), fmt.Sprintf("stop kubelet failed: %s", host.GetName()))
 	}
-	if versionutil.MustParseSemantic(u.KubeConf.Cluster.Kubernetes.Version).AtLeast(versionutil.MustParseSemantic("v1.24.0")) {
-		if _, err := runtime.GetRunner().SudoCmd("sed -i 's/ --network-plugin=cni / /g' /var/lib/kubelet/kubeadm-flags.env", false); err != nil {
+	if u.KubeConf.Cluster.Kubernetes.IsAtLeastV124() {
+		if _, err := runtime.GetRunner().SudoCmd(fmt.Sprintf("echo 'KUBELET_KUBEADM_ARGS=\\\"--container-runtime-endpoint=%s\\\"' > /var/lib/kubelet/kubeadm-flags.env", u.KubeConf.Cluster.Kubernetes.ContainerRuntimeEndpoint), false); err != nil {
 			return errors.Wrap(errors.WithStack(err), fmt.Sprintf("update kubelet config failed: %s", host.GetName()))
 		}
 	}
@@ -1026,7 +1027,8 @@ func (s *SaveKubeConfig) Execute(runtime connector.Runtime) error {
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubekey-system",
+			Name:   "kubekey-system",
+			Labels: map[string]string{"kubesphere.io/workspace": "system-workspace"},
 		},
 	}
 	if _, err := clientsetForCluster.

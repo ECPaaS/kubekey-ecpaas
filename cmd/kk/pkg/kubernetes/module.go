@@ -18,9 +18,10 @@ package kubernetes
 
 import (
 	"fmt"
+	"path/filepath"
+
 	"github.com/kubesphere/kubekey/v3/cmd/kk/pkg/core/util"
 	"github.com/kubesphere/kubekey/v3/cmd/kk/pkg/plugins/dns"
-	"path/filepath"
 
 	"github.com/pkg/errors"
 
@@ -508,6 +509,7 @@ func (p *ProgressiveUpgradeModule) Init() {
 		Action:  new(CalculateNextVersion),
 	}
 
+	// prepare
 	download := &task.LocalTask{
 		Name:    "DownloadBinaries",
 		Desc:    "Download installation binaries",
@@ -524,6 +526,7 @@ func (p *ProgressiveUpgradeModule) Init() {
 		Parallel: true,
 	}
 
+	// upgrade kubernetes
 	syncBinary := &task.RemoteTask{
 		Name:     "SyncKubeBinary",
 		Desc:     "Synchronize kubernetes binaries",
@@ -560,6 +563,7 @@ func (p *ProgressiveUpgradeModule) Init() {
 		Desc:  "Generate coredns manifests",
 		Hosts: p.Runtime.GetHostsByRole(common.Master),
 		Prepare: &prepare.PrepareCollection{
+			new(NotEqualPlanVersion),
 			new(common.OnlyFirstMaster),
 		},
 		Action:   new(dns.GenerateCorednsmanifests),
@@ -571,6 +575,7 @@ func (p *ProgressiveUpgradeModule) Init() {
 		Desc:  "Deploy coredns",
 		Hosts: p.Runtime.GetHostsByRole(common.Master),
 		Prepare: &prepare.PrepareCollection{
+			new(NotEqualPlanVersion),
 			new(common.OnlyFirstMaster),
 		},
 		Action:   new(dns.DeployCoreDNS),
@@ -582,6 +587,7 @@ func (p *ProgressiveUpgradeModule) Init() {
 		Desc:  "Generate nodelocaldns",
 		Hosts: p.Runtime.GetHostsByRole(common.Master),
 		Prepare: &prepare.PrepareCollection{
+			new(NotEqualPlanVersion),
 			new(common.OnlyFirstMaster),
 			new(dns.EnableNodeLocalDNS),
 		},
@@ -601,6 +607,7 @@ func (p *ProgressiveUpgradeModule) Init() {
 		Desc:  "Deploy nodelocaldns",
 		Hosts: p.Runtime.GetHostsByRole(common.Master),
 		Prepare: &prepare.PrepareCollection{
+			new(NotEqualPlanVersion),
 			new(common.OnlyFirstMaster),
 			new(dns.EnableNodeLocalDNS)},
 		Action:   new(dns.DeployNodeLocalDNS),
