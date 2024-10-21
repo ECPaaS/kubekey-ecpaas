@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	manifestregistry "github.com/estesp/manifest-tool/v2/pkg/registry"
 	manifesttypes "github.com/estesp/manifest-tool/v2/pkg/types"
@@ -137,8 +138,8 @@ func GetImage(runtime connector.ModuleRuntime, kubeConf *common.KubeConf, name s
 		"provisioner-localpv": {RepoAddr: kubeConf.Cluster.Registry.PrivateRegistry, Namespace: "openebs", Repo: "provisioner-localpv", Tag: "3.3.0", Group: kubekeyv1alpha2.Worker, Enable: false},
 		"linux-utils":         {RepoAddr: kubeConf.Cluster.Registry.PrivateRegistry, Namespace: "openebs", Repo: "linux-utils", Tag: "3.3.0", Group: kubekeyv1alpha2.Worker, Enable: false},
 		// load balancer
-		"haproxy": {RepoAddr: kubeConf.Cluster.Registry.PrivateRegistry, Namespace: "library", Repo: "haproxy", Tag: "2.3", Group: kubekeyv1alpha2.Worker, Enable: kubeConf.Cluster.ControlPlaneEndpoint.IsInternalLBEnabled()},
-		"kubevip": {RepoAddr: kubeConf.Cluster.Registry.PrivateRegistry, Namespace: "plndr", Repo: "kube-vip", Tag: "v0.5.0", Group: kubekeyv1alpha2.Master, Enable: kubeConf.Cluster.ControlPlaneEndpoint.IsInternalLBEnabledVip()},
+		"haproxy": {RepoAddr: kubeConf.Cluster.Registry.PrivateRegistry, Namespace: "library", Repo: "haproxy", Tag: "2.9.6-alpine", Group: kubekeyv1alpha2.Worker, Enable: kubeConf.Cluster.ControlPlaneEndpoint.IsInternalLBEnabled()},
+		"kubevip": {RepoAddr: kubeConf.Cluster.Registry.PrivateRegistry, Namespace: "plndr", Repo: "kube-vip", Tag: "v0.7.2", Group: kubekeyv1alpha2.Master, Enable: kubeConf.Cluster.ControlPlaneEndpoint.IsInternalLBEnabledVip()},
 		// kata-deploy
 		"kata-deploy": {RepoAddr: kubeConf.Cluster.Registry.PrivateRegistry, Namespace: kubekeyv1alpha2.DefaultKubeImageNamespace, Repo: "kata-deploy", Tag: "stable", Group: kubekeyv1alpha2.Worker, Enable: kubeConf.Cluster.Kubernetes.EnableKataDeploy()},
 		// node-feature-discovery
@@ -154,6 +155,8 @@ func GetImage(runtime connector.ModuleRuntime, kubeConf *common.KubeConf, name s
 
 type SaveImages struct {
 	common.ArtifactAction
+	ImageStartIndex int
+	ImageTransport  string
 }
 
 func (s *SaveImages) Execute(runtime connector.Runtime) error {
@@ -163,7 +166,10 @@ func (s *SaveImages) Execute(runtime connector.Runtime) error {
 	if err := coreutil.Mkdir(dirName); err != nil {
 		return errors.Wrapf(errors.WithStack(err), "mkdir %s failed", dirName)
 	}
-	for _, image := range s.Manifest.Spec.Images {
+	for index, image := range s.Manifest.Spec.Images {
+		if s.ImageStartIndex > index {
+			continue
+		}
 		if err := validateImageName(image); err != nil {
 			return err
 		}
@@ -174,7 +180,7 @@ func (s *SaveImages) Execute(runtime connector.Runtime) error {
 			auth = v
 		}
 
-		srcName := fmt.Sprintf("docker://%s", image)
+		srcName := formatImageName(s.ImageTransport, image)
 		for _, platform := range s.Manifest.Spec.Arches {
 			arch, variant := ParseArchVariant(platform)
 			// placeholder
@@ -182,11 +188,11 @@ func (s *SaveImages) Execute(runtime connector.Runtime) error {
 				variant = "-" + variant
 			}
 			// Ex:
-			// oci:./kubekey/artifact/images:kubesphere:kube-apiserver:v1.21.5-amd64
-			// oci:./kubekey/artifact/images:kubesphere:kube-apiserver:v1.21.5-arm-v7
-			destName := fmt.Sprintf("oci:%s:%s:%s-%s%s", dirName, imageFullName[1], suffixImageName(imageFullName[2:]), arch, variant)
-			logger.Log.Infof("Source: %s", srcName)
-			logger.Log.Infof("Destination: %s", destName)
+			// oci:./kubekey/artifact/images:docker.io/kubesphere/kube-apiserver:v1.21.5-amd64
+			// oci:./kubekey/artifact/images:docker.io/kubesphere/kube-apiserver:v1.21.5-arm-v7
+			destName := fmt.Sprintf("oci:%s:%s-%s%s", dirName, image, arch, variant)
+			logger.Log.Infof("[%d]Source: %s", index, srcName)
+			logger.Log.Infof("[%d]Destination: %s", index, destName)
 
 			o := &CopyImageOptions{
 				srcImage: &srcImageOptions{
@@ -211,8 +217,18 @@ func (s *SaveImages) Execute(runtime connector.Runtime) error {
 				},
 			}
 
-			if err := o.Copy(); err != nil {
-				return err
+			// Copy image
+			// retry 3 times
+			for i := 0; i < 3; i++ {
+				if err := o.Copy(); err != nil {
+					if i == 2 {
+						return errors.Wrapf(err, "copy image %s failed", srcName)
+					}
+					logger.Log.Warnf("copy image %s failed, retrying", srcName)
+					time.Sleep(5 * time.Second)
+					continue
+				}
+				break
 			}
 		}
 	}
@@ -221,7 +237,8 @@ func (s *SaveImages) Execute(runtime connector.Runtime) error {
 
 type CopyImagesToRegistry struct {
 	common.KubeAction
-	ImagesPath string
+	ImagesPath     string
+	ImageTransport string
 }
 
 func (c *CopyImagesToRegistry) Execute(runtime connector.Runtime) error {
@@ -249,18 +266,21 @@ func (c *CopyImagesToRegistry) Execute(runtime connector.Runtime) error {
 		ref := m.Annotations.RefName
 
 		// Ex:
-		// calico:cni:v3.20.0-amd64
-		nameArr := strings.Split(ref, ":")
-		if len(nameArr) != 3 {
+		// docker.io/calico/cni:v3.20.0-amd64
+		repoAddr, namespace, imageName, imageTag, err := parseImageFullName(ref)
+		if err != nil {
 			return errors.Errorf("invalid ref name: %s", ref)
 		}
 
+		if c.ImageTransport != common.DockerDaemon {
+			repoAddr = c.KubeConf.Cluster.Registry.PrivateRegistry
+		}
 		image := Image{
-			RepoAddr:          c.KubeConf.Cluster.Registry.PrivateRegistry,
-			Namespace:         nameArr[0],
+			RepoAddr:          repoAddr,
+			Namespace:         namespace,
 			NamespaceOverride: c.KubeConf.Cluster.Registry.NamespaceOverride,
-			Repo:              nameArr[1],
-			Tag:               nameArr[2],
+			Repo:              imageName,
+			Tag:               imageTag,
 		}
 
 		uniqueImage, p := ParseImageWithArchTag(image.ImageName())
@@ -294,7 +314,12 @@ func (c *CopyImagesToRegistry) Execute(runtime connector.Runtime) error {
 		}
 
 		srcName := fmt.Sprintf("oci:%s:%s", imagesPath, ref)
-		destName := fmt.Sprintf("docker://%s", image.ImageName())
+		destName := formatImageName(c.ImageTransport, image.ImageName())
+
+		if c.ImageTransport == common.DockerDaemon {
+			destName = formatImageName(c.ImageTransport, uniqueImage)
+		}
+
 		logger.Log.Infof("Source: %s", srcName)
 		logger.Log.Infof("Destination: %s", destName)
 
@@ -355,8 +380,8 @@ func (p *PushManifest) Execute(_ connector.Runtime) error {
 
 	auths := registry.DockerRegistryAuthEntries(p.KubeConf.Cluster.Registry.Auths)
 	auth := new(registry.DockerRegistryEntry)
-	if _, ok := auths[p.KubeConf.Cluster.Registry.PrivateRegistry]; ok {
-		auth = auths[p.KubeConf.Cluster.Registry.PrivateRegistry]
+	if _, ok := auths[p.KubeConf.Cluster.Registry.GetHost()]; ok {
+		auth = auths[p.KubeConf.Cluster.Registry.GetHost()]
 	}
 
 	for imageName, platforms := range list {
@@ -366,7 +391,7 @@ func (p *PushManifest) Execute(_ connector.Runtime) error {
 		logger.Log.Infof("Push multi-arch manifest list: %s", imageName)
 		// todo: the function can't support specify a certs dir
 		digest, length, err := manifestregistry.PushManifestList(auth.Username, auth.Password, manifestSpec,
-			false, true, auth.PlainHTTP, "")
+			true, true, auth.PlainHTTP, "")
 		if err != nil {
 			return errors.Wrap(errors.WithStack(err), fmt.Sprintf("push image %s multi-arch manifest failed", imageName))
 		}

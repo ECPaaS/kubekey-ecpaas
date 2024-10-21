@@ -30,6 +30,39 @@ import (
 	"github.com/pkg/errors"
 )
 
+type SyncDockerBuildxPluginBinaries struct {
+	common.KubeAction
+}
+
+func (s *SyncDockerBuildxPluginBinaries) Execute(runtime connector.Runtime) error {
+	if err := utils.ResetTmpDir(runtime); err != nil {
+		return err
+	}
+
+	binariesMapObj, ok := s.PipelineCache.Get(common.KubeBinaries + "-" + runtime.RemoteHost().GetArch())
+	if !ok {
+		return errors.New("get KubeBinary by pipeline cache failed")
+	}
+	binariesMap := binariesMapObj.(map[string]*files.KubeBinary)
+
+	buildx, ok := binariesMap[common.Buildx]
+	if !ok {
+		return errors.New("get KubeBinary key buildx by pipeline cache failed")
+	}
+
+	dst := filepath.Join(common.TmpDir, buildx.FileName)
+	if err := runtime.GetRunner().Scp(buildx.Path(), dst); err != nil {
+		return errors.Wrap(errors.WithStack(err), fmt.Sprintf("sync docker binaries failed"))
+	}
+
+	if _, err := runtime.GetRunner().SudoCmd(
+		fmt.Sprintf("mkdir -p /usr/local/lib/docker/cli-plugins && mv %s /usr/local/lib/docker/cli-plugins/docker-buildx && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx && rm -rf %s", dst, dst),
+		false); err != nil {
+		return errors.Wrap(errors.WithStack(err), fmt.Sprintf("install docker-buildx binaries failed"))
+	}
+	return nil
+}
+
 type SyncDockerBinaries struct {
 	common.KubeAction
 }
@@ -182,7 +215,7 @@ func (d *DisableDocker) Execute(runtime connector.Runtime) error {
 		"/usr/bin/runc",
 		"/usr/bin/ctr",
 		"/usr/bin/docker*",
-		"/usr/bin/containerd*",
+		"/usr/bin/containerd-shim-runc-v2",
 		filepath.Join("/etc/systemd/system", templates.DockerService.Name()),
 		filepath.Join("/etc/docker", templates.DockerConfig.Name()),
 	}
@@ -193,6 +226,7 @@ func (d *DisableDocker) Execute(runtime connector.Runtime) error {
 			return errors.Wrap(errors.WithStack(err), fmt.Sprintf("disable and stop cri-docker failed"))
 		}
 		files = append(files, filepath.Join("/etc/systemd/system", templates.CriDockerService.Name()))
+		files = append(files, "/var/run/cri-dockerd.sock")
 	}
 
 	if d.KubeConf.Cluster.Registry.DataRoot != "" {

@@ -37,6 +37,8 @@ type Argument struct {
 	KsVersion           string
 	Debug               bool
 	IgnoreErr           bool
+	SkipInstallAddons   bool
+	EnabledAddons       []string
 	SkipPullImages      bool
 	SkipPushImages      bool
 	SkipDependencyCheck bool
@@ -48,12 +50,15 @@ type Argument struct {
 	FromCluster         bool
 	KubeConfig          string
 	Artifact            string
+	ImageTransport      string
 	InstallPackages     bool
 	ImagesDir           string
 	Namespace           string
 	DeleteCRI           bool
 	Role                string
 	Type                string
+	EtcdUpgrade         bool
+	WithBuildx          bool
 }
 
 func NewKubeRuntime(flag string, arg Argument) (*KubeRuntime, error) {
