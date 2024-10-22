@@ -4,6 +4,10 @@
 
 > English | [中文](README_zh-CN.md) | [日本語](README_ja-JP.md)
 
+
+### ecpaas tag
+* v3.3.2-ecpaas
+
 ### 👋 Welcome to KubeKey!
 
 KubeKey is an open-source lightweight tool for deploying Kubernetes clusters. It provides a flexible, rapid, and convenient way to install Kubernetes/K3s only, both Kubernetes/K3s and KubeSphere, and related cloud-native add-ons. It is also an efficient tool to scale and upgrade your cluster.

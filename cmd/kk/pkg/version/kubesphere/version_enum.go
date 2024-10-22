@@ -35,7 +35,7 @@ const (
 	V330
 	V331
 	V332
-        EcpaasV332
+	V332ECPAAS
 	V340
 	V341
 )
@@ -50,37 +50,37 @@ var VersionList = []Version{
 	V330,
 	V331,
 	V332,
-        EcpaasV332,
+	V332ECPAAS,
 	V340,
 	V341,
 }
 
 var VersionMap = map[string]*KsInstaller{
-	V211.String(): KsV211,
-	V300.String(): KsV300,
-	V310.String(): KsV310,
-	V311.String(): KsV311,
-	V320.String(): KsV320,
-	V321.String(): KsV321,
-	V330.String(): KsV330,
-	V331.String(): KsV331,
-	V332.String(): KsV332,
-        EcpaasV332.String(): KsEcpaasV332,
-	V340.String(): KsV340,
-	V341.String(): KsV341,
+	V211.String():       KsV211,
+	V300.String():       KsV300,
+	V310.String():       KsV310,
+	V311.String():       KsV311,
+	V320.String():       KsV320,
+	V321.String():       KsV321,
+	V330.String():       KsV330,
+	V331.String():       KsV331,
+	V332.String():       KsV332,
+	V332ECPAAS.String(): KsV332ECPAAS,
+	V340.String():       KsV340,
+	V341.String():       KsV341,
 }
 
 var CNSource = map[string]bool{
-	V310.String(): true,
-	V311.String(): true,
-	V320.String(): true,
-	V321.String(): true,
-	V330.String(): true,
-	V331.String(): true,
-	V332.String(): true,
-        EcpaasV332.String(): true,
-	V340.String(): true,
-	V341.String(): true,
+	V310.String():       true,
+	V311.String():       true,
+	V320.String():       true,
+	V321.String():       true,
+	V330.String():       true,
+	V331.String():       true,
+	V332.String():       true,
+	V332ECPAAS.String(): true,
+	V340.String():       true,
+	V341.String():       true,
 }
 
 func (v Version) String() string {
@@ -103,8 +103,8 @@ func (v Version) String() string {
 		return "v3.3.1"
 	case V332:
 		return "v3.3.2"
-        case EcpaasV332:
-               return "ecpaas-v332"
+	case V332ECPAAS:
+		return "v3.3.2-ecpaas"
 	case V340:
 		return "v3.4.0"
 	case V341:

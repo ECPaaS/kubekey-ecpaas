@@ -17,11 +17,12 @@
 package templates
 
 import (
-	"github.com/lithammer/dedent"
 	"text/template"
+
+	"github.com/lithammer/dedent"
 )
 
-var EcpaasV332 = template.Must(template.New("ecpaas-v332").Parse(
+var V332ECPAAS = template.Must(template.New("v332ecpaas").Parse(
 	dedent.Dedent(`
 ---
 apiVersion: installer.kubesphere.io/v1alpha1
