@@ -38,7 +38,12 @@ spec:
   authentication:
     jwtSecret: ""
   zone: ""
-  local_registry: ""
+  local_registry: "ecpaas-dockerhub.atan-networks.com.cn"
+  ecpaas_console_ver: "ecpaas-v332" # image tag for ecpaas ks-console
+  ecpaas_apisvr_ver: "ecpaas-v332"  # image tag for ecpaas ks-api-server
+  ecpaas_cmgr_ver: "ecpaas-v332"    # image tag for ecpaas ks-control-manager
+  # ecpaas_kubevirt_ver: ""         # image tag for ecpaas kubevirt
+  # ecpaas_cdi_ver: ""              # image tag for ecpaas cdi  
   # dev_tag: ""
   etcd:
     monitoring: false
