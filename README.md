@@ -114,6 +114,18 @@ KubeKey can install Kubernetes and KubeSphere together. Some dependencies need t
   cd kubekey
   make kk
   ```
+* Files used to build KubeKey:
+  * Everything in cmd/
+  * hack/version.sh
+  * Everything in util/
+  * version/components.json, version/version.go
+  * go.mod, go.sum, Makefile
+* To support more Kubernetes/K3s version:
+  * Add version number and SHA256 hash to version/components.json
+  * Add version to docs/kubernetes-versions.md or docs/k3s-versions.md, this is only for documentation.
+  * SHA256 hash can be obtained from [Kubernetes](https://www.downloadkubernetes.com/)/[K3s](https://github.com/k3s-io/k3s/releases)
+  download page or github release page.
+  * Re-build the KubeKey Binary.
 
 ### Create a Cluster
 
@@ -185,6 +197,22 @@ You have more control to customize parameters or create a multi-node cluster usi
    ```shell
    ./kk create cluster -f config-sample.yaml
    ```
+
+#### K3s Cluster
+
+To create a K3s cluster instead of Kubernetes one, add "-k3s" suffix to the Kubernetes version in the command or in the config yaml file(config-sample.yaml in previous section). For example:
+```shell
+./kk create cluster --with-kubernetes v1.33.3-k3s
+```
+or
+```shell
+# Change the Kubernetes version in config-sample.yaml
+...
+spec:
+  kubernetes:
+    version: 1.33.3-k3s
+...
+```
 
 ### Enable Multi-cluster Management
 
