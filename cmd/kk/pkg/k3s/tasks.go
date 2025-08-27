@@ -184,8 +184,6 @@ func (g *GenerateK3sService) Execute(runtime connector.Runtime) error {
 	}
 
 	defaultKubeletArs := map[string]string{
-		"cni-conf-dir":    "/etc/cni/net.d",
-		"cni-bin-dir":     "/opt/cni/bin",
 		"kube-reserved":   "cpu=200m,memory=250Mi,ephemeral-storage=1Gi",
 		"system-reserved": "cpu=200m,memory=250Mi,ephemeral-storage=1Gi",
 		"eviction-hard":   "memory.available<5%,nodefs.available<10%",
@@ -196,7 +194,6 @@ func (g *GenerateK3sService) Execute(runtime connector.Runtime) error {
 
 	kubeApiserverArgs, _ := util.GetArgs(map[string]string{}, g.KubeConf.Cluster.Kubernetes.ApiServerArgs)
 	kubeControllerManager, _ := util.GetArgs(map[string]string{
-		"pod-eviction-timeout":        "3m0s",
 		"terminated-pod-gc-threshold": "5",
 	}, g.KubeConf.Cluster.Kubernetes.ControllerManagerArgs)
 	kubeSchedulerArgs, _ := util.GetArgs(map[string]string{}, g.KubeConf.Cluster.Kubernetes.SchedulerArgs)
