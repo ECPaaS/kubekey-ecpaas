@@ -8,6 +8,7 @@
 | v1.21.6  | :white_check_mark:  |
 | v1.23.13 | :white_check_mark:  |
 | v1.24.7  | :white_check_mark:  |
+| v1.33.3  | :white_check_mark:  |
 
 ## K3s Versions(arm64)
 | Version  | Supported          |
@@ -16,3 +17,4 @@
 | v1.21.6  | :white_check_mark: |
 | v1.23.13 | :white_check_mark: |
 | v1.24.7  | :white_check_mark: |
+| v1.33.3  | :white_check_mark: |
